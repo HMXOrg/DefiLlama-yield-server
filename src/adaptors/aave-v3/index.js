@@ -18,6 +18,7 @@ const chainUrlParam = {
   harmony: 'proto_harmony_v3',
   optimism: 'proto_optimism_v3',
   metis: 'proto_metis_v3',
+  xdai: 'proto_gnosis_v3',
 };
 
 const getPrices = async (addresses) => {
@@ -57,6 +58,7 @@ const API_URLS = {
   fantom: 'https://api.thegraph.com/subgraphs/name/aave/protocol-v3-fantom',
   metis:
     'https://andromeda.thegraph.metis.io/subgraphs/name/aave/protocol-v3-metis',
+  xdai: 'https://api.thegraph.com/subgraphs/name/aave/protocol-v3-gnosis',
 };
 
 const query = gql`
@@ -79,6 +81,42 @@ const query = gql`
       }
       vToken {
         rewards {
+          emissionsPerSecond
+          rewardToken
+          rewardTokenDecimals
+          rewardTokenSymbol
+          distributionEnd
+        }
+      }
+      symbol
+      liquidityRate
+      variableBorrowRate
+      baseLTVasCollateral
+      isFrozen
+    }
+  }
+`;
+
+const queryMetis = gql`
+  query ReservesQuery {
+    reserves(first: 25) {
+      name
+      borrowingEnabled
+      aToken {
+        id
+        rewards(first: 1) {
+          id
+          emissionsPerSecond
+          rewardToken
+          rewardTokenDecimals
+          rewardTokenSymbol
+          distributionEnd
+        }
+        underlyingAssetAddress
+        underlyingAssetDecimals
+      }
+      vToken {
+        rewards(first: 1) {
           emissionsPerSecond
           rewardToken
           rewardTokenDecimals
@@ -224,9 +262,10 @@ const apy = async () => {
   let data = await Promise.all(
     Object.entries(API_URLS).map(async ([chain, url]) => [
       chain,
-      (await request(url, query)).reserves,
+      (await request(url, chain === 'metis' ? queryMetis : query)).reserves,
     ])
   );
+
   data = data.map(([chain, reserves]) => [
     chain,
     reserves.filter((p) => !p.isFrozen),
